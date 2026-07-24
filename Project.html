@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhishBuster 🛡️ | Real-time Scam & Phishing Link Scanner</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { 
+            background: #0b0f19; 
+            color: #f8fafc; 
+            display: flex; 
+            justify-content: center; 
+            padding: 40px 15px; 
+            margin: 0; 
+            min-height: 100vh; 
+            align-items: center; 
+        }
+        .card { 
+            background: #161e2e; 
+            padding: 30px; 
+            border-radius: 16px; 
+            width: 100%; 
+            max-width: 620px; 
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); 
+            border: 1px solid #232f48;
+        }
+        .brand { text-align: center; margin-bottom: 25px; }
+        .brand h1 { 
+            color: #38bdf8; 
+            margin: 0; 
+            font-size: 32px; 
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .brand p { color: #94a3b8; margin-top: 6px; font-size: 15px; }
+        
+        .input-group { position: relative; margin-bottom: 15px; }
+        input { 
+            width: 100%; 
+            padding: 14px 16px; 
+            border-radius: 10px; 
+            border: 1px solid #334155; 
+            background: #0b1120; 
+            color: white; 
+            font-size: 15px; 
+            outline: none; 
+            transition: all 0.2s ease;
+        }
+        input:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15); }
+        
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            background: linear-gradient(135deg, #0284c7, #2563eb); 
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            font-size: 16px; 
+            transition: transform 0.1s ease, opacity 0.2s ease; 
+        }
+        button:hover { opacity: 0.95; }
+        button:active { transform: scale(0.99); }
+        
+        .result { margin-top: 25px; padding: 20px; border-radius: 12px; background: #0b1120; display: none; border: 1px solid #1e293b; }
+        .badge { 
+            font-size: 22px; 
+            font-weight: 800; 
+            text-align: center; 
+            padding: 12px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+        }
+        
+        .green { background: #15803d; color: #f0fdf4; }
+        .orange { background: #c2410c; color: #fff7ed; }
+        .red { background: #b91c1c; color: #fef2f2; }
+        
+        .info-row { margin-bottom: 10px; font-size: 15px; color: #cbd5e1; }
+        .info-row strong { color: #f8fafc; }
+        
+        ul { padding-left: 0; list-style: none; margin-top: 12px; margin-bottom: 0; }
+        li { 
+            margin-bottom: 10px; 
+            padding: 10px 12px; 
+            background: #161e2e; 
+            border-left: 4px solid #ef4444; 
+            border-radius: 4px; 
+            color: #e2e8f0; 
+            font-size: 14px; 
+            line-height: 1.4;
+        }
+        li.safe-flag { border-left-color: #22c55e; }
+        li strong { color: #f8fafc; display: block; margin-bottom: 2px; }
+        
+        .error-msg { color: #f87171; text-align: center; font-weight: 600; margin-top: 15px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="brand">
+        <h1>PhishBuster 🛡️</h1>
+        <p>Instant Scam & Phishing Link Intelligence</p>
+    </div>
+    
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="Paste link here (e.g., http://paypaI-security-verify.xyz)">
+    </div>
+    <button onclick="checkLink()">Bust Link</button>
+
+    <div id="errorBox" class="error-msg"></div>
+
+    <div id="resultBox" class="result">
+        <div id="statusBadge" class="badge"></div>
+        <div class="info-row"><strong>Target Domain:</strong> <span id="domainText"></span></div>
+        <div class="info-row"><strong>Overview:</strong> <span id="overviewText"></span></div>
+        <div style="margin-top: 15px;"><strong>Detailed Threat Reasons Identified:</strong></div>
+        <ul id="reasonsList"></ul>
+    </div>
+</div>
+
+<script>
+function checkLink() {
+    const urlInput = document.getElementById('urlInput');
+    let rawUrl = urlInput.value.trim();
+
+    const resultBox = document.getElementById('resultBox');
+    const errorBox = document.getElementById('errorBox');
+
+    resultBox.style.display = 'none';
+    errorBox.style.display = 'none';
+
+    if (!rawUrl) {
+        errorBox.innerText = "Please paste a link to scan!";
+        errorBox.style.display = 'block';
+        return;
+    }
+
+    let formattedUrl = rawUrl;
+    if (!/^https?:\/\//i.test(formattedUrl)) {
+        formattedUrl = 'http://' + formattedUrl;
+    }
+
+    try {
+        const parsed = new URL(formattedUrl);
+        const domain = parsed.hostname.toLowerCase();
+        const fullUrl = rawUrl.toLowerCase();
+        
+        let risks = [];
+
+        // -------------------------------------------------------------
+        // NEW REASON 1: Typosquatting & Brand Character Mimicry
+        // -------------------------------------------------------------
+        const protectedBrands = ['paypal', 'google', 'apple', 'amazon', 'microsoft', 'netflix', 'facebook', 'instagram', 'bankofamerica', 'chase'];
+        const lookalikes = [
+            { pattern: /paypa[i1l]/i, brand: 'PayPal' },
+            { pattern: /g[0o]{2}gle/i, brand: 'Google' },
+            { pattern: /app[1l]e/i, brand: 'Apple' },
+            { pattern: /[0o]n1ine/i, brand: 'Generic Online Service' }
+        ];
+
+        lookalikes.forEach(item => {
+            if (item.pattern.test(domain) && !protectedBrands.some(b => domain === b + '.com')) {
+                risks.push({
+                    title: "Brand Impersonation / Typosquatting",
+                    desc: `The domain uses character substitutions (e.g., numbers or look-alike letters) to trick you into believing it is ${item.brand}.`
+                });
+            }
+        });
+
+        // -------------------------------------------------------------
+        // NEW REASON 2: High-Risk / Abused Top-Level Domains (TLDs)
+        // -------------------------------------------------------------
+        const highRiskTLDs = ['.zip', '.mov', '.top', '.xyz', '.tk', '.ml', '.ga', '.cf', '.gq', '.work', '.click', '.download'];
+        const matchedTLD = highRiskTLDs.find(tld => domain.endsWith(tld));
+        if (matchedTLD) {
+            risks.push({
+                title: "High-Risk Domain Extension",
+                desc: `The extension '${matchedTLD}' is frequently used by malicious networks due to low registration costs and minimal identity verification.`
+            });
+        }
+
+        // -------------------------------------------------------------
+        // NEW REASON 3: Insecure Protocol & Sensitive Action Combo
+        // -------------------------------------------------------------
+        const sensitiveKeywords = ['login', 'signin', 'verify', 'update', 'account', 'banking', 'secure', 'password', 'credential', 'checkout'];
+        const foundKeywords = sensitiveKeywords.filter(kw => fullUrl.includes(kw));
+
+        if (parsed.protocol !== 'https:') {
+            if (foundKeywords.length > 0) {
+                risks.push({
+                    title: "Unencrypted Sensitive Form (No HTTPS)",
+                    desc: `The link attempts to perform a sensitive action (${foundKeywords.join(', ')}) over an unencrypted connection (http://), exposing login credentials to interception.`
+                });
+            } else {
+                risks.push({
+                    title: "Insecure Connection (HTTP)",
+                    desc: "This site lacks SSL encryption. Any data transmitted can be intercepted by third parties on your network."
+                });
+            }
+        } else if (foundKeywords.length > 0 && risks.length > 0) {
+            risks.push({
+                title: "Phishing Keyword Combination",
+                desc: `Contains target security terms (${foundKeywords.join(', ')}) on an unverified or suspicious domain structure.`
+            });
+        }
+
+        // Structural Flags
+        const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+        if (ipRegex.test(domain)) {
+            risks.push({
+                title: "Raw IP Hostname",
+                desc: "Uses a numerical IP address instead of a standard domain name to hide the operator's real identity."
+            });
+        }
+
+        if (rawUrl.includes('@')) {
+            risks.push({
+                title: "URL Routing Obfuscation",
+                desc: "Contains an '@' character, which trick browsers into ignoring the left side of the link and routing you to a different destination."
+            });
+        }
+
+        // Risk Assessment
+        let status, color, overview;
+        const score = risks.length;
+
+        if (score === 0) {
+            status = "SAFE";
+            color = "green";
+            overview = "No structural phishing anomalies or known high-risk indicators were detected.";
+        } else if (score === 1) {
+            status = "SUSPICIOUS";
+            color = "orange";
+            overview = "Caution advised. The link exhibits structural irregularities common in scam campaigns.";
+        } else {
+            status = "DANGEROUS";
+            color = "red";
+            overview = "CRITICAL RISK: Multiple clear phishing tactics detected. Do not enter credentials or download files.";
+        }
+
+        // UI Updates
+        resultBox.style.display = 'block';
+        
+        const badge = document.getElementById('statusBadge');
+        badge.innerText = status;
+        badge.className = `badge ${color}`;
+
+        document.getElementById('domainText').innerText = domain;
+        document.getElementById('overviewText').innerText = overview;
+
+        const list = document.getElementById('reasonsList');
+        list.innerHTML = '';
+
+        if (risks.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'safe-flag';
+            li.innerHTML = "<strong>Clean Structure</strong>No immediate security red flags identified during client-side evaluation.";
+            list.appendChild(li);
+        } else {
+            risks.forEach(r => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${r.title}</strong>${r.desc}`;
+                list.appendChild(li);
+            });
+        }
+
+    } catch (e) {
+        errorBox.innerText = "Invalid link format. Please double-check the URL.";
+        errorBox.style.display = 'block';
+    }
+}
+</script>
+
+</body>
+</html>
